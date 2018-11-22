@@ -20,10 +20,10 @@ service: aurora-serverless-admin # NOTE: update this with your service name
 provider:
   name: aws
   runtime: dotnetcore2.1
-
-# you can overwrite defaults here
-#  stage: dev
-#  region: us-east-1
+  stage: dev
+  region: eu-west-1
+  profile: abel-ao
+  timeout: 60
 
 # you can add statements to the Lambda function's IAM Role here
 #  iamRoleStatements:
@@ -53,8 +53,14 @@ package:
 #    - exclude-me-dir/**
 
 functions:
-  hello:
-    handler: CsharpHandlers::AwsDotnetCsharp.Handler::Hello
+  RunQuery:
+    handler: CsharpHandlers::project.lambda.Function::RunQueryHandler
+    vpc:
+      securityGroupIds:
+        - !Ref DbClusterSg
+      subnetIds:
+        - subnet-0c8c0eae5dc9574f6
+        - subnet-07541aa84cc88248c
 
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
@@ -90,13 +96,78 @@ functions:
 #      variable2: value2
 
 # you can add CloudFormation resource templates here
-#resources:
-#  Resources:
-#    NewResource:
-#      Type: AWS::S3::Bucket
-#      Properties:
-#        BucketName: my-new-bucket
-#  Outputs:
-#     NewOutput:
-#       Description: "Description for the output"
-#       Value: "Some output value"
+resources:
+  Parameters: 
+    DbClusterDatabaseName: 
+      Type: String
+      Default: generator
+    DbClusterIdentifier: 
+      Type: String
+      Default: serverless-mysql-aurora
+    DbClusterParameterGroup: 
+      Type: String
+      Default: default.aurora5.6
+    DbClusterMasterUsername: 
+      Type: String
+      Default: master
+    DbClusterMasterPassword: 
+      Type: String
+      Default: Aurora.2018
+    DbClusterPort: 
+      Type: Number
+      Default: 3306
+    VpcId: 
+      Type: String
+      Default: vpc-1afba47c
+
+  Resources:
+    DbClusterSg:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupDescription: Allow MySQL port to client host
+        VpcId:
+          Ref: VpcId
+        SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: !Ref DbClusterPort
+            ToPort: !Ref DbClusterPort
+            CidrIp: 0.0.0.0/0
+
+    DbSubnetGroup: 
+      Type: "AWS::RDS::DBSubnetGroup"
+      Properties: 
+        DBSubnetGroupDescription: "private subnets"
+        SubnetIds: 
+          - subnet-0c8c0eae5dc9574f6
+          - subnet-07541aa84cc88248c
+
+    AuroraMysqlCluster:
+      Type: AWS::RDS::DBCluster
+      Properties:
+        DatabaseName:
+          Ref: DbClusterDatabaseName
+        DBClusterParameterGroupName:
+          Ref: DbClusterParameterGroup
+        DBSubnetGroupName:
+          Ref: DbSubnetGroup
+        Engine: aurora
+        EngineMode: serverless
+        MasterUsername:
+          Ref: DbClusterMasterUsername
+        MasterUserPassword:
+          Ref: DbClusterMasterPassword
+        ScalingConfiguration:
+          AutoPause: true
+          MinCapacity: 2
+          MaxCapacity: 4
+          SecondsUntilAutoPause: 1800
+        VpcSecurityGroupIds:
+          - !Ref DbClusterSg
+
+  # Outputs:
+  #   DbClusterEndpointAddress:
+  #     Value: !GetAtt AuroraMysqlCluster.Endpoint.Address
+  #   DbClusterEndpointPort:
+  #     Value: !GetAtt AuroraMysqlCluster.Endpoint.Port
+
+
