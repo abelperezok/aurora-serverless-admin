@@ -12,7 +12,7 @@ using Newtonsoft.Json;
 // Assembly attribute to enable the Lambda function's JSON input to be converted into a .NET class.
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.Json.JsonSerializer))]
 
-namespace project.lambda
+namespace AuroraAdmin
 {
     public class ConnectionInfo
     {
@@ -23,17 +23,11 @@ namespace project.lambda
         public int DbPort { get; set; }
     }
 
-    public class LambdaInput
+    public class QueryRequest
     {
         public ConnectionInfo Connection { get; set; }
 
         public string QueryText { get; set; }
-    }
-
-    public class LambdaOutput
-    {
-        public string Name { get; set; }
-        public bool Old { get; set; }
     }
 
     public class Function
@@ -54,7 +48,7 @@ namespace project.lambda
             return cmd;
         }
 
-        public List<Dictionary<string, object>> RunQueryHandler(LambdaInput input, ILambdaContext context)
+        public List<Dictionary<string, object>> ExecuteReaderHandler(QueryRequest input, ILambdaContext context)
         {
             var cxnString = GetCxnString(input.Connection);
             var query = input.QueryText;
@@ -84,59 +78,16 @@ namespace project.lambda
             }
             return result;
         }
+
+        public int ExecuteNonQueryHandler(QueryRequest input, ILambdaContext context)
+        {
+            var cxnString = GetCxnString(input.Connection);
+            var query = input.QueryText;
+            using (var conn = new MySql.Data.MySqlClient.MySqlConnection(cxnString))
+            {
+                var cmd = GetCommand(conn, query);
+                return cmd.ExecuteNonQuery();
+            }
+        }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// using Amazon.Lambda.Core;
-// using System;
-
-// [assembly:LambdaSerializer(typeof(Amazon.Lambda.Serialization.Json.JsonSerializer))]
-
-// namespace AwsDotnetCsharp
-// {
-//     public class Handler
-//     {
-//        public Response Hello(Request request)
-//        {
-//            return new Response("Go Serverless v1.0! Your function executed successfully!", request);
-//        }
-//     }
-
-//     public class Response
-//     {
-//       public string Message {get; set;}
-//       public Request Request {get; set;}
-
-//       public Response(string message, Request request){
-//         Message = message;
-//         Request = request;
-//       }
-//     }
-
-//     public class Request
-//     {
-//       public string Key1 {get; set;}
-//       public string Key2 {get; set;}
-//       public string Key3 {get; set;}
-
-//       public Request(string key1, string key2, string key3){
-//         Key1 = key1;
-//         Key2 = key2;
-//         Key3 = key3;
-//       }
-//     }
-// }

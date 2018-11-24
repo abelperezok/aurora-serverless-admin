@@ -53,14 +53,109 @@ package:
 #    - exclude-me-dir/**
 
 functions:
-  RunQuery:
-    handler: CsharpHandlers::project.lambda.Function::RunQueryHandler
+  ExecuteReader:
+    handler: AuroraAdminLambda::AuroraAdmin.Function::ExecuteReaderHandler
     vpc:
       securityGroupIds:
         - !Ref DbClusterSg
-      subnetIds:
-        - subnet-0c8c0eae5dc9574f6
-        - subnet-07541aa84cc88248c
+      subnetIds: !Ref SubnetIds
+    events:
+     - http:
+        path: execute-reader
+        method: POST
+        integration: lambda
+        request:
+          template:
+            application/json: |
+              {
+                "Connection": {
+                  "DbUser": $input.json('$.user'),
+                  "DbPassword": $input.json('$.pwd'),
+                  "DbName": $input.json('$.db'),
+                  "DbHost": $input.json('$.host'),
+                  "DbPort": $input.json('$.port')
+                },
+                "QueryText": $input.json('$.query')
+              }
+        response:
+          headers:
+            Content-Type: "'application/json'"
+          statusCodes:
+            200:
+              pattern: ''
+              template:
+                application/json: |
+                  #set ($root=$input.path('$'))
+                  {
+                    "Results": $root,
+                    "Error": ""
+                  }
+            500:
+              pattern: '.+'
+              template:
+                application/json: |
+                  #set ($root=$input.path('$'))
+                  {
+                    "Results": [],
+                    "Error": "$root.errorMessage"
+                  }
+
+  ExecuteNonQuery:
+    handler: AuroraAdminLambda::AuroraAdmin.Function::ExecuteNonQueryHandler
+    vpc:
+      securityGroupIds:
+        - !Ref DbClusterSg
+      subnetIds: !Ref SubnetIds
+    events:
+     - http:
+        path: execute-non-query
+        method: POST
+        integration: lambda
+        request:
+          template:
+            application/json: |
+              {
+                "Connection": {
+                  "DbUser": $input.json('$.user'),
+                  "DbPassword": $input.json('$.pwd'),
+                  "DbName": $input.json('$.db'),
+                  "DbHost": $input.json('$.host'),
+                  "DbPort": $input.json('$.port')
+                },
+                "QueryText": $input.json('$.query')
+              }
+        response:
+          headers:
+            Content-Type: "'application/json'"
+          statusCodes:
+            200:
+              pattern: ''
+              template:
+                application/json: |
+                  {
+                    "AffectedRows": $input.path('$')
+                  }
+            500:
+              pattern: '.+'
+              template:
+                application/json: |
+                  {
+                    "Results": [],
+                    "Error": "$input.path('$.errorMessage')"
+                  }
+
+
+
+
+
+
+
+
+
+
+
+
+#                     "StackTrace": $root.stackTrace
 
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
@@ -119,6 +214,9 @@ resources:
     VpcId: 
       Type: String
       Default: vpc-1afba47c
+    SubnetIds: 
+      Type: CommaDelimitedList
+      Default: subnet-0c8c0eae5dc9574f6,subnet-07541aa84cc88248c
 
   Resources:
     DbClusterSg:
@@ -137,9 +235,7 @@ resources:
       Type: "AWS::RDS::DBSubnetGroup"
       Properties: 
         DBSubnetGroupDescription: "private subnets"
-        SubnetIds: 
-          - subnet-0c8c0eae5dc9574f6
-          - subnet-07541aa84cc88248c
+        SubnetIds: !Ref SubnetIds
 
     AuroraMysqlCluster:
       Type: AWS::RDS::DBCluster
