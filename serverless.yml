@@ -3,9 +3,13 @@ service: aurora-serverless-admin
 provider:
   name: aws
   runtime: dotnetcore2.1
-  stage: dev
-  region: eu-west-1
+  stage: dev # should go as opt param
+  region: eu-west-1 # should go as opt param
   timeout: 30
+  vpc:
+    securityGroupIds:
+      - !Ref DbClusterSg
+    subnetIds: !Ref SubnetIds
 
 custom:
   vpcId: ${opt:opt-vpc-id}
@@ -21,10 +25,6 @@ package:
 functions:
   ExecuteReader:
     handler: AuroraAdminLambda::AuroraAdmin.Function::ExecuteReaderHandler
-    vpc:
-      securityGroupIds:
-        - !Ref DbClusterSg
-      subnetIds: !Ref SubnetIds
     events:
      - http:
         path: execute-reader
@@ -35,10 +35,6 @@ functions:
 
   ExecuteNonQuery:
     handler: AuroraAdminLambda::AuroraAdmin.Function::ExecuteNonQueryHandler
-    vpc:
-      securityGroupIds:
-        - !Ref DbClusterSg
-      subnetIds: !Ref SubnetIds
     events:
      - http:
         path: execute-non-query
