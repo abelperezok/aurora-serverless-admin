@@ -1,0 +1,12 @@
+template:
+  application/json: |
+    {
+      "Connection": {
+        "DbUser": $input.json('$.user'),
+        "DbPassword": $input.json('$.pwd'),
+        "DbName": $input.json('$.db'),
+        "DbHost": $input.json('$.host'),
+        "DbPort": $input.json('$.port')
+      },
+      "QueryText": $input.json('$.query')
+    }

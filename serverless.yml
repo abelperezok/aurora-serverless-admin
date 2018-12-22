@@ -7,6 +7,14 @@ provider:
   region: eu-west-1
   timeout: 30
 
+custom:
+  vpcId: ${opt:opt-vpc-id}
+  subnetIds: ${opt:opt-subnet-ids}
+  dbPort: ${opt:opt-db-port, '3306'}
+  dbUser: ${opt:opt-db-user}
+  dbPwd: ${opt:opt-db-pwd}
+  dbName: ${opt:opt-db-name}
+
 package:
   artifact: bin/release/netcoreapp2.1/deploy-package.zip
 
@@ -22,41 +30,8 @@ functions:
         path: execute-reader
         method: POST
         integration: lambda
-        request:
-          template:
-            application/json: |
-              {
-                "Connection": {
-                  "DbUser": $input.json('$.user'),
-                  "DbPassword": $input.json('$.pwd'),
-                  "DbName": $input.json('$.db'),
-                  "DbHost": $input.json('$.host'),
-                  "DbPort": $input.json('$.port')
-                },
-                "QueryText": $input.json('$.query')
-              }
-        response:
-          headers:
-            Content-Type: "'application/json'"
-          statusCodes:
-            200:
-              pattern: ''
-              template:
-                application/json: |
-                  #set ($root=$input.path('$'))
-                  {
-                    "Results": $root,
-                    "Error": ""
-                  }
-            500:
-              pattern: '.+'
-              template:
-                application/json: |
-                  #set ($root=$input.path('$'))
-                  {
-                    "Results": [],
-                    "Error": "$root.errorMessage"
-                  }
+        request: ${file(request-template.yml)}
+        response: ${file(execute-reader-response.yml)}
 
   ExecuteNonQuery:
     handler: AuroraAdminLambda::AuroraAdmin.Function::ExecuteNonQueryHandler
@@ -69,78 +44,26 @@ functions:
         path: execute-non-query
         method: POST
         integration: lambda
-        request:
-          template:
-            application/json: |
-              {
-                "Connection": {
-                  "DbUser": $input.json('$.user'),
-                  "DbPassword": $input.json('$.pwd'),
-                  "DbName": $input.json('$.db'),
-                  "DbHost": $input.json('$.host'),
-                  "DbPort": $input.json('$.port')
-                },
-                "QueryText": $input.json('$.query')
-              }
-        response:
-          headers:
-            Content-Type: "'application/json'"
-          statusCodes:
-            200:
-              pattern: ''
-              template:
-                application/json: |
-                  {
-                    "AffectedRows": $input.path('$')
-                  }
-            500:
-              pattern: '.+'
-              template:
-                application/json: |
-                  {
-                    "Results": [],
-                    "Error": "$input.path('$.errorMessage')"
-                  }
+        request: ${file(request-template.yml)}
+        response: ${file(execute-non-query-response.yml)}
 
 # CloudFormation resources
 resources:
-  Parameters: 
-    DbClusterDatabaseName: 
-      Type: String
-      Default: ${opt:opt-db-name}
-    DbClusterIdentifier: 
-      Type: String
-      Default: ${opt:opt-db-cluster-id}
-    DbClusterParameterGroup: 
-      Type: String
-      Default: default.aurora5.6
-    DbClusterMasterUsername: 
-      Type: String
-      Default: ${opt:opt-db-user}
-    DbClusterMasterPassword: 
-      Type: String
-      Default: ${opt:opt-db-pwd}
-    DbClusterPort: 
-      Type: Number
-      Default: ${opt:opt-db-port, '3306'}
-    VpcId: 
-      Type: String
-      Default: ${opt:opt-vpc-id}
+  Parameters:
     SubnetIds: 
       Type: CommaDelimitedList
-      Default: ${opt:opt-subnet-ids}
+      Default: ${self:custom.subnetIds}
 
   Resources:
     DbClusterSg:
       Type: AWS::EC2::SecurityGroup
       Properties:
         GroupDescription: Allow MySQL port to client host
-        VpcId:
-          Ref: VpcId
+        VpcId: ${self:custom.vpcId}
         SecurityGroupIngress:
           - IpProtocol: tcp
-            FromPort: !Ref DbClusterPort
-            ToPort: !Ref DbClusterPort
+            FromPort: ${self:custom.dbPort}
+            ToPort: ${self:custom.dbPort}
             CidrIp: 0.0.0.0/0
 
     DbSubnetGroup: 
@@ -152,18 +75,13 @@ resources:
     AuroraMysqlCluster:
       Type: AWS::RDS::DBCluster
       Properties:
-        DatabaseName:
-          Ref: DbClusterDatabaseName
-        DBClusterParameterGroupName:
-          Ref: DbClusterParameterGroup
-        DBSubnetGroupName:
-          Ref: DbSubnetGroup
+        DatabaseName: ${self:custom.dbName}
+        DBClusterParameterGroupName: default.aurora5.6
+        DBSubnetGroupName: !Ref DbSubnetGroup
         Engine: aurora
         EngineMode: serverless
-        MasterUsername:
-          Ref: DbClusterMasterUsername
-        MasterUserPassword:
-          Ref: DbClusterMasterPassword
+        MasterUsername: ${self:custom.dbUser}
+        MasterUserPassword: ${self:custom.dbPwd}
         ScalingConfiguration:
           AutoPause: true
           MinCapacity: 2

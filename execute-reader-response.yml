@@ -1,0 +1,21 @@
+headers:
+  Content-Type: "'application/json'"
+statusCodes:
+  200:
+    pattern: ''
+    template:
+      application/json: |
+        #set ($root=$input.path('$'))
+        {
+          "Results": $root,
+          "Error": ""
+        }
+  500:
+    pattern: '.+'
+    template:
+      application/json: |
+        #set ($root=$input.path('$'))
+        {
+          "Results": [],
+          "Error": "$root.errorMessage"
+        }

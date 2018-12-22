@@ -1,0 +1,18 @@
+headers:
+  Content-Type: "'application/json'"
+statusCodes:
+  200:
+    pattern: ''
+    template:
+      application/json: |
+        {
+          "AffectedRows": $input.path('$')
+        }
+  500:
+    pattern: '.+'
+    template:
+      application/json: |
+        {
+          "Results": [],
+          "Error": "$input.path('$.errorMessage')"
+        }
