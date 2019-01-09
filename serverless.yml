@@ -20,7 +20,7 @@ custom:
   dbName: ${opt:opt-db-name}
 
 package:
-  artifact: bin/release/netcoreapp2.1/deploy-package.zip
+  artifact: backend/bin/release/netcoreapp2.1/deploy-package.zip
 
 functions:
   ExecuteReader:
@@ -32,6 +32,7 @@ functions:
         integration: lambda
         request: ${file(request-template.yml)}
         response: ${file(execute-reader-response.yml)}
+        cors: true
 
   ExecuteNonQuery:
     handler: AuroraAdminLambda::AuroraAdmin.Function::ExecuteNonQueryHandler
@@ -42,6 +43,7 @@ functions:
         integration: lambda
         request: ${file(request-template.yml)}
         response: ${file(execute-non-query-response.yml)}
+        cors: true
 
 # CloudFormation resources
 resources:
@@ -86,7 +88,22 @@ resources:
         VpcSecurityGroupIds:
           - !Ref DbClusterSg
 
-  # Outputs:
+    WebBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        WebsiteConfiguration:
+          IndexDocument: index.html
+          ErrorDocument: error.html
+
+  Outputs:
+    S3BucketName:
+      Description: S3 bucket website name
+      Value: !Ref WebBucket
+
+    WebsiteURL:
+      Description: S3 bucket website HTTP endpoint
+      Value: !GetAtt WebBucket.WebsiteURL
+
   #   DbClusterEndpointAddress:
   #     Value: !GetAtt AuroraMysqlCluster.Endpoint.Address
   #   DbClusterEndpointPort:
